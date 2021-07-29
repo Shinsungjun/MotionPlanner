@@ -87,10 +87,10 @@ DIST_THRESHOLD_TO_LAST_WAYPOINT = 2.0  # some distance from last position before
                                        # simulation ends
 
 # Planning Constants
-NUM_PATHS = 3
-BP_LOOKAHEAD_BASE      = 3.0              # m
+NUM_PATHS = 7
+BP_LOOKAHEAD_BASE      = 8.0            # m
 BP_LOOKAHEAD_TIME      = 1.0              # s
-PATH_OFFSET            = 1.5              # m
+PATH_OFFSET            = 0.3              # m
 CIRCLE_OFFSETS         = [-1.0, 1.0, 3.0] # m
 CIRCLE_RADII           = [1.5, 1.5, 1.5]  # m
 TIME_GAP               = 1.0              # s
@@ -152,7 +152,7 @@ class Autonomous:
            
 
 
-    def get_current_pose(self,position,car_yaw_degree):
+    def get_current_pose(self,position,yaw_rad):
         """Obtains current x,y,yaw pose from the client measurements
         
         Obtains the current x,y, and yaw pose from the client measurements.
@@ -167,9 +167,9 @@ class Autonomous:
         """
         x   = position.x
         y   = position.y
-        yaw = car_yaw_degree
+        yaw = yaw_rad
 
-        return (x, y, yaw)
+        return (x, y, yaw_rad)
 
 
     # def send_control_command(self, throttle, steer, brake, 
@@ -202,38 +202,44 @@ class Autonomous:
     #     # client.send_control(control)
 
 
-    def exec_waypoint_nav_demo(self,position, car_yaw_degree, nsecs, speed):
+    def exec_waypoint_nav_demo(self,position, yaw_rad, nsecs, speed):
         
         # Update pose and timestamp
         prev_timestamp = self.current_timestamp
         current_x, current_y, current_yaw = \
-            self.get_current_pose(position,car_yaw_degree)
+            self.get_current_pose(position,yaw_rad)
         current_speed = speed
         self.current_timestamp = nsecs
 
 
 
         open_loop_speed = self.lp._velocity_planner.get_open_loop_speed(self.current_timestamp - prev_timestamp)
+        print("open", open_loop_speed)
 
         ego_state = [current_x, current_y, current_yaw, open_loop_speed]
         print('ego_state', ego_state)
 
-        self.bp.set_lookahead(BP_LOOKAHEAD_BASE + BP_LOOKAHEAD_TIME * open_loop_speed)
+        #self.bp.set_lookahead(BP_LOOKAHEAD_BASE + BP_LOOKAHEAD_TIME * open_loop_speed)
+
 
         # Perform a state transition in the behavioural planner.
         self.bp.transition_state(waypoints, ego_state, current_speed)
 
 
         goal_state_set = self.lp.get_goal_state_set(self.bp._goal_index, self.bp._goal_state, waypoints, ego_state)
-
+        print("goal_index :",self.bp._goal_index)
         # Calculate planned paths in the local frame.
         paths, self.path_validity = self.lp.plan_paths(goal_state_set)
-
+        print("val", self.path_validity)
+        print("goal_state :", self.bp._goal_state)
+        for i in range(len(paths)):
+            print("path last x, y :",paths[i][0][-1], paths[i][1][-1])
         # Transform those paths back to the global frame.
         paths = local_planner.transform_paths(paths, ego_state)
-        print('in local paths[0] length', len(paths[0][0]))
+
         # Compute the best local path.
         best_index = self.lp._collision_checker.select_best_path_index(paths, self.bp._goal_state)
+        print("best_idx: ", best_index)
 
         # If no path was feasible, continue to follow the previous best path.
         if best_index == None:
@@ -244,8 +250,8 @@ class Autonomous:
 
         desired_speed = self.bp._goal_state[2]
         
-        decelerate_to_stop = self.bp._state == behavioural_planner.DECELERATE_TO_STOP
-        self.local_waypoints = self.lp._velocity_planner.compute_velocity_profile(best_path, desired_speed, ego_state, current_speed, decelerate_to_stop, False)
+        #decelerate_to_stop = self.bp._state == behavioural_planner.DECELERATE_TO_STOP
+        self.local_waypoints = self.lp._velocity_planner.compute_velocity_profile(best_path, desired_speed, ego_state, current_speed, False, False)
         
 
         if self.local_waypoints != None:
@@ -273,7 +279,7 @@ class Autonomous:
                     wp_interp.append(list(self.local_waypoints_np[i] + next_wp_vector))
             # add last waypoint at the end
             wp_interp.append(list(self.local_waypoints_np[-1]))
-            
+
             # Update the other controller values and controls
             self.controller.update_waypoints(wp_interp)
         
@@ -288,7 +294,7 @@ class Autonomous:
             cmd_throttle = 0.0
             cmd_steer = 0.0
         
-        return paths, cmd_throttle,cmd_steer,cmd_brake
+        return paths, cmd_throttle,cmd_steer,cmd_brake, best_index
 
 
     

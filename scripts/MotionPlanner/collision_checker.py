@@ -71,4 +71,5 @@ class CollisionChecker:
                 best_score = score
                 best_index = i
 
+
         return best_index

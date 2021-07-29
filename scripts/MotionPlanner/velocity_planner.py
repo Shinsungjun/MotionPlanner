@@ -93,7 +93,6 @@ class VelocityPlanner:
 
         # Save the planned profile for open loop speed estimation.
         self._prev_trajectory = profile
-
         return profile
 
     # Computes a trapezoidal profile for decelerating to stop.

@@ -41,24 +41,33 @@ class LocalPlanner:
         if goal_index < len(waypoints)-1:
             delta_x = waypoints[goal_index+1][0] - waypoints[goal_index][0]
             delta_y = waypoints[goal_index+1][1] - waypoints[goal_index][1]
+
         else: 
             delta_x = waypoints[goal_index][0] - waypoints[goal_index-1][0]
             delta_y = waypoints[goal_index][1] - waypoints[goal_index-1][1]
+        
+
+
+
         heading = np.arctan2(delta_y,delta_x)
+  
 
         
         goal_state_local = copy.copy(goal_state)
 
-       
         goal_state_local[0] -= ego_state[0] 
         goal_state_local[1] -= ego_state[1] 
         
+        #for smoothing, but you have to very dense waypoints
         theta = -ego_state[2]
+
         goal_x = goal_state_local[0] * cos(theta) - goal_state_local[1] * sin(theta)
         goal_y = goal_state_local[0] * sin(theta) + goal_state_local[1] * cos(theta)
        
         goal_t = heading - ego_state[2]
     
+
+       
         goal_v = goal_state[2]
 
         if goal_t > pi:
@@ -78,7 +87,8 @@ class LocalPlanner:
                                    goal_y + y_offset, 
                                    goal_t, 
                                    goal_v])
-           
+        
+
         return goal_state_set  
               
     def plan_paths(self, goal_state_set):
@@ -88,14 +98,14 @@ class LocalPlanner:
             path = self._path_optimizer.optimize_spiral(goal_state[0], 
                                                         goal_state[1], 
                                                         goal_state[2])
-            # if np.linalg.norm([path[0][-1] - goal_state[0], 
-            #                    path[1][-1] - goal_state[1], 
-            #                    path[2][-1] - goal_state[2]]) > 0.1:
-            #     path_validity.append(False)
-            
-            paths.append(path)
-            path_validity.append(True)
-        #print("lp_path",paths)
+            if np.linalg.norm([path[0][-1] - goal_state[0], 
+                               path[1][-1] - goal_state[1], 
+                               path[2][-1] - goal_state[2]]) > 1000:
+                path_validity.append(False)
+            else:
+                paths.append(path)
+                path_validity.append(True)
+        
         return paths, path_validity
 
 

@@ -36,6 +36,7 @@ class BehaviouralPlanner:
 
     def set_lookahead(self, lookahead):
         self._lookahead = lookahead
+
     def transition_state(self, waypoints, ego_state, closed_loop_speed):
         
         if self._state == FOLLOW_LANE:
@@ -43,7 +44,7 @@ class BehaviouralPlanner:
             closest_len, closest_index = get_closest_index(waypoints, ego_state)
             print('closest_len, index', closest_len, closest_index)
             goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
-            while waypoints[goal_index][2] <= 0.1: goal_index += 1
+            #while waypoints[goal_index][2] <= 0.1: goal_index += 1
             self._goal_index = goal_index
             self._goal_state = waypoints[goal_index]
                 
@@ -55,18 +56,18 @@ class BehaviouralPlanner:
         arc_length = closest_len
         wp_index = closest_index
         
-        
         if arc_length > self._lookahead:
             return wp_index
 
         if wp_index == len(waypoints) - 1:
             return wp_index
+        count = 0
 
         while wp_index < len(waypoints) - 1:
             arc_length += np.sqrt((waypoints[wp_index][0] - waypoints[wp_index+1][0])**2 + (waypoints[wp_index][1] - waypoints[wp_index+1][1])**2)
             if arc_length > self._lookahead: break
             wp_index += 1
-        print('wp_index', wp_index)
+
         return wp_index
 
 def get_closest_index(waypoints, ego_state):

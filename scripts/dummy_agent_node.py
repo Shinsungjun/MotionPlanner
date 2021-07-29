@@ -8,9 +8,11 @@ from nav_msgs.msg import Odometry
 from nav_msgs.msg import Path
 from std_msgs.msg import Int8MultiArray
 from geometry_msgs.msg import PoseStamped
+from visualization_msgs.msg import Marker
 import math
 import MotionPlanner.module_7 as module7
 import numpy as np
+import time
 #from geometry_msgs.msg import Point
 
 module_7= module7.Autonomous()
@@ -54,6 +56,7 @@ class Agent(object):
         #mapdata.data = OccupancyGrid.data
         self.drive_pub = rospy.Publisher('/drive', AckermannDriveStamped, queue_size=1)
         self.path_pub = rospy.Publisher('/paths', Path, queue_size=1)
+        self.marker_pub = rospy.Publisher('/marker', Marker, queue_size=10)
 
         #self.mapdata = rospy.Subscriber('/map', OccupancyGrid, self.callback, queue_size=1)
         self.scan_sub = rospy.Subscriber('/scan', LaserScan, self.scan_callback, queue_size=1)
@@ -72,8 +75,7 @@ class Agent(object):
         position = odom_msg.pose.pose.position
         orientation = odom_msg.pose.pose.orientation
         velocity = odom_msg.twist.twist.linear 
-        _,_,yaw = to_eularian_angles(orientation)
-        car_yaw_degree = rad2deg(yaw)
+        _,_,yaw_rad = to_eularian_angles(orientation)
         #print(position)
         # tan_x = self.waypoint_x[self.point] - position.x
         # tan_y = self.waypoint_y[self.point] - position.y
@@ -90,15 +92,15 @@ class Agent(object):
         #rospy.loginfo("Current time %i %i", now.secs, now.nsecs)
 
         speed = np.linalg.norm([velocity.x,velocity.y,velocity.z])
-        paths, cmd_throttle,cmd_steer,cmd_brake = module_7.exec_waypoint_nav_demo(position, car_yaw_degree, now.nsecs,speed)
-
+        paths, cmd_throttle,cmd_steer,cmd_brake, best_index = module_7.exec_waypoint_nav_demo(position, yaw_rad, now.nsecs,speed)
+        paths_np = np.array(paths)
         drive = AckermannDriveStamped()
         drive.drive.speed = cmd_throttle
         drive.drive.steering_angle = cmd_steer
         print("cmd_throttle",cmd_throttle)
         print("cmd_steer",cmd_steer)
         path_draw = Path()
-        path_draw.header.frame_id = "path"
+        path_draw.header.frame_id = "map"
         path_draw.header.stamp = rospy.Time.now()
         for i in range(len(paths)):
             for j in range(len(paths[i][0])):
@@ -106,18 +108,40 @@ class Agent(object):
                 pose.pose.position.x = paths[i][0][j]
                 pose.pose.position.y = paths[i][1][j]
                 pose.pose.position.z = 0
-                pose.pose.orientation.x = 0
-                pose.pose.orientation.y = 0
-                pose.pose.orientation.z = 0
-                pose.pose.orientation.w = 1
+                #pose.pose.orientation.x = 0
+                #pose.pose.orientation.y = 0
+                #pose.pose.orientation.z = 0
+                #pose.pose.orientation.w = 1
                 path_draw.poses.append(pose)
-            
-        print('len path poses', len(path_draw.poses))
-        #print(path_draw.poses)
+        path_marker = Marker()
+        path_marker.header.frame_id = 'map'
+        path_marker.header.stamp = rospy.get_rostime()
+        path_marker.ns = "my"
+        path_marker.id = 0
+        path_marker.type = 2
+        path_marker.action = 0
+        path_marker.pose.position.x = paths[best_index][0][-1]
+        path_marker.pose.position.y = paths[best_index][1][-1]
+        path_marker.pose.position.z = 0
+        path_marker.pose.orientation.x = 0
+        path_marker.pose.orientation.y = 0
+        path_marker.pose.orientation.z = 0
+        path_marker.pose.orientation.w = 1.0
+        path_marker.scale.x = 0.1
+        path_marker.scale.y = 0.1
+        path_marker.scale.z = 0.1
+        path_marker.color.r = 0.0
+        path_marker.color.g = 1.0
+        path_marker.color.b = 0.0
+        path_marker.color.a = 1.0
+
         self.drive_pub.publish(drive)
         self.path_pub.publish(path_draw)
+        self.marker_pub.publish(path_marker)
+        time.sleep(0.05)
 
 if __name__ == '__main__':
     rospy.init_node('dummy_agent')
+    time.sleep(10)
     dummy_agent = Agent()
     rospy.spin()

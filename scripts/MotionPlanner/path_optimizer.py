@@ -17,6 +17,8 @@ import numpy as np
 import scipy.optimize
 import scipy.integrate
 from math import sin, cos, pi, sqrt
+import time
+import math
 
 class PathOptimizer:
     def __init__(self):
@@ -24,13 +26,42 @@ class PathOptimizer:
         self._yf = 0.0
         self._tf = 0.0
 
-    def optimize_spiral(self, xf, yf, tf):
+    ##########bounds
+    def bounds_check(self, yaw,sf_0):
+        bounds = ((-0.25, 0.25),(-0.25, 0.25),(sf_0, None))
+
+        if np.abs(yaw)>60:
+            bounds = ((-0.5, 0.5),(-0.5, 0.5),(sf_0, None))
+        return bounds
+    
+
+    ######yaw
+    def yaw_check(self,xf, yf ,ego_state):
+        yaw = math.degrees(ego_state[2])
+
+        waypoint_yaw_degree = math.degrees(math.atan2(yf, xf))
+
+        to_waypoint_yaw = waypoint_yaw_degree - yaw
+
+        if to_waypoint_yaw < -180:
+            to_waypoint_yaw = 360 + to_waypoint_yaw
+
+        elif to_waypoint_yaw > 180:
+            to_waypoint_yaw = -360 + to_waypoint_yaw
+
+
+        return to_waypoint_yaw
+
+
+
+    def optimize_spiral(self, xf, yf, tf,ego_state):
         self._xf = xf
         self._yf = yf
         self._tf = tf
         sf_0 = np.linalg.norm([xf, yf])
         p0 = [0.0, 0.0, sf_0]
-        bounds = ((-0.5, 0.5),(-0.5, 0.5),(sf_0, None))
+        yaw = self.yaw_check(xf, yf, ego_state)
+        bounds = self.bounds_check(yaw,sf_0)
         res = scipy.optimize.minimize(self.objective,p0,method='L-BFGS-B',bounds=bounds,jac=self.objective_grad)
         #print('res.x',res.x)
         spiral = self.sample_spiral(res.x)

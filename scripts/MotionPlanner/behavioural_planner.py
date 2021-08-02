@@ -42,7 +42,7 @@ class BehaviouralPlanner:
         if self._state == FOLLOW_LANE:
             
             closest_len, closest_index = get_closest_index(waypoints, ego_state)
-            print('closest_len, index', closest_len, closest_index)
+            #print('closest_len, index', closest_len, closest_index)
             goal_index = self.get_goal_index(waypoints, ego_state, closest_len, closest_index)
             #while waypoints[goal_index][2] <= 0.1: goal_index += 1
             self._goal_index = goal_index

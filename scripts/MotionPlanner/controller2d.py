@@ -129,9 +129,9 @@ class Controller2D(object):
         if self._start_control_loop:
 
             self.vars.v_error           = v_desired - v
-            print("v_desired :",v_desired)
-            print("v :",v)
-            print("v_error :",self.vars.v_error)
+            #print("v_desired :",v_desired)
+            #print("v :",v)
+            #print("v_error :",self.vars.v_error)
             self.vars.v_error_integral += self.vars.v_error * \
                                           (t - self.vars.t_prev)
             v_error_rate_of_change      = (self.vars.v_error - self.vars.v_error_prev) /\
@@ -170,7 +170,7 @@ class Controller2D(object):
                     (crosstrack_heading_error + self._pi) % \
                     self._2pi - self._pi
 
-            print('cross', crosstrack_heading, crosstrack_heading_error)
+            #print('cross', crosstrack_heading, crosstrack_heading_error)
 
             crosstrack_sign = np.sign(crosstrack_heading_error)
     

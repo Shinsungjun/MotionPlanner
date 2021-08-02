@@ -19,7 +19,7 @@ import MotionPlanner.path_optimizer as path_optimizer
 import MotionPlanner.collision_checker as collision_checker
 import MotionPlanner.velocity_planner as velocity_planner
 from math import sin, cos, pi, sqrt
-
+import time
 class LocalPlanner:
     def __init__(self, num_paths, path_offset, circle_offsets, circle_radii, 
                  path_select_weight, time_gap, a_max, slow_speed, 
@@ -35,7 +35,8 @@ class LocalPlanner:
             velocity_planner.VelocityPlanner(time_gap, a_max, slow_speed, 
                                              stop_line_buffer)
         self._prev_best_path = None
-
+        self.current_time = 0
+        self.prev_time = 0
     def get_goal_state_set(self, goal_index, goal_state, waypoints, ego_state):
         
         if goal_index < len(waypoints)-1:
@@ -91,13 +92,14 @@ class LocalPlanner:
 
         return goal_state_set  
               
-    def plan_paths(self, goal_state_set):
+    def plan_paths(self, goal_state_set,ego_state):
+        self.prev_time = time.time()
         paths         = []
         path_validity = []
         for goal_state in goal_state_set:
             path = self._path_optimizer.optimize_spiral(goal_state[0], 
                                                         goal_state[1], 
-                                                        goal_state[2])
+                                                        goal_state[2],ego_state)
             if np.linalg.norm([path[0][-1] - goal_state[0], 
                                path[1][-1] - goal_state[1], 
                                path[2][-1] - goal_state[2]]) > 1000:
@@ -105,7 +107,8 @@ class LocalPlanner:
             else:
                 paths.append(path)
                 path_validity.append(True)
-        
+        self.current_time = time.time()
+        #print("in path opti : ", 1/(self.current_time - self.prev_time))
         return paths, path_validity
 
 

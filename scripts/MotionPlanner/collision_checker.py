@@ -60,16 +60,26 @@ class CollisionChecker:
         return collision_check_array
 
    
-    def select_best_path_index(self, paths, goal_state):
-       
+    def select_best_path_index(self, paths, collision_check_array, goal_state):
         best_index = None
         best_score = float('Inf')
         for i in range(len(paths)):
+            # Handle the case of collision-free paths.
+            if collision_check_array[i]:
+              
+                score = sqrt((paths[i][1][-1] - goal_state[1]) ** 2 + (paths[i][0][-1] - goal_state[0]) ** 2)
+               
+                for j in range(len(paths)):
+                    if j == i:
+                        continue
+                    else:
+                        if not collision_check_array[j]:
+                            score += self._weight * sqrt((paths[i][1][-1] - paths[j][1][-1]) ** 2 + (paths[i][0][-1] - paths[j][0][-1]) ** 2)
+            else:
+                score = float('Inf')
             
-            score = np.sqrt((paths[i][0][-1]-goal_state[0])**2+(paths[i][1][-1]-goal_state[1])**2)
             if score < best_score:
                 best_score = score
                 best_index = i
-
 
         return best_index

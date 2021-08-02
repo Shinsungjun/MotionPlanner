@@ -35,6 +35,7 @@ import configparser
 import MotionPlanner.local_planner as local_planner
 import MotionPlanner.behavioural_planner as behavioural_planner
 import MotionPlanner.controller2d as controller2d
+import time
 
 # Script level imports
 sys.path.append(os.path.abspath(sys.path[0] + '/..'))
@@ -90,9 +91,9 @@ DIST_THRESHOLD_TO_LAST_WAYPOINT = 2.0  # some distance from last position before
 NUM_PATHS = 7
 BP_LOOKAHEAD_BASE      = 8.0            # m
 BP_LOOKAHEAD_TIME      = 1.0              # s
-PATH_OFFSET            = 0.3              # m
-CIRCLE_OFFSETS         = [-1.0, 1.0, 3.0] # m
-CIRCLE_RADII           = [1.5, 1.5, 1.5]  # m
+PATH_OFFSET            = 0.7              # m
+CIRCLE_OFFSETS         = [-0.1, 0.1, 0.3] # m
+CIRCLE_RADII           = [0.1, 0.1, 0.1]  # m
 TIME_GAP               = 1.0              # s
 PATH_SELECT_WEIGHT     = 10
 A_MAX                  = 1.5              # m/s^2
@@ -149,7 +150,9 @@ class Autonomous:
         self.waypoints = waypoints
         self.controller = controller
         self.bp = behavioural_planner.BehaviouralPlanner(BP_LOOKAHEAD_BASE)
-           
+        self.times = []
+        self.curr_time = 0
+        self.prev_time = 0
 
 
     def get_current_pose(self,position,yaw_rad):
@@ -202,8 +205,8 @@ class Autonomous:
     #     # client.send_control(control)
 
 
-    def exec_waypoint_nav_demo(self,position, yaw_rad, nsecs, speed):
-        
+    def exec_waypoint_nav_demo(self,position, yaw_rad, nsecs, speed, scan_data):
+        self.prev_time = time.time()
         # Update pose and timestamp
         prev_timestamp = self.current_timestamp
         current_x, current_y, current_yaw = \
@@ -214,32 +217,66 @@ class Autonomous:
 
 
         open_loop_speed = self.lp._velocity_planner.get_open_loop_speed(self.current_timestamp - prev_timestamp)
-        print("open", open_loop_speed)
+        #print("open", open_loop_speed)
 
         ego_state = [current_x, current_y, current_yaw, open_loop_speed]
-        print('ego_state', ego_state)
+        #print('ego_state', ego_state)
 
         #self.bp.set_lookahead(BP_LOOKAHEAD_BASE + BP_LOOKAHEAD_TIME * open_loop_speed)
 
-
+        prevtime = time.time()
         # Perform a state transition in the behavioural planner.
         self.bp.transition_state(waypoints, ego_state, current_speed)
 
+        currtime = time.time()
+        #print('bp trainsition :', 1/(currtime-prevtime))
+        self.times.append(currtime-prevtime)
+        prevtime = time.time()
 
         goal_state_set = self.lp.get_goal_state_set(self.bp._goal_index, self.bp._goal_state, waypoints, ego_state)
-        print("goal_index :",self.bp._goal_index)
+        currtime = time.time()
+        #print('state set  :', 1/(currtime-prevtime))
+        self.times.append(currtime-prevtime)
+
+
+        #print("goal_index :",self.bp._goal_index)
         # Calculate planned paths in the local frame.
-        paths, self.path_validity = self.lp.plan_paths(goal_state_set)
-        print("val", self.path_validity)
-        print("goal_state :", self.bp._goal_state)
-        for i in range(len(paths)):
-            print("path last x, y :",paths[i][0][-1], paths[i][1][-1])
+        prevtime = time.time()
+
+        paths, self.path_validity = self.lp.plan_paths(goal_state_set,ego_state)
+        currtime = time.time()
+        #print('plan path  :', 1/(currtime-prevtime))
+        self.times.append(currtime-prevtime)
+
+
+        #print("val", self.path_validity)
+        #print("goal_state :", self.bp._goal_state)
+        # for i in range(len(paths)):
+        #     print("path last x, y :",paths[i][0][-1], paths[i][1][-1])
         # Transform those paths back to the global frame.
+        prevtime = time.time()
+
         paths = local_planner.transform_paths(paths, ego_state)
+        currtime = time.time()
+        #print('transform :', 1/(currtime-prevtime))
+        self.times.append(currtime-prevtime)
+
 
         # Compute the best local path.
-        best_index = self.lp._collision_checker.select_best_path_index(paths, self.bp._goal_state)
-        print("best_idx: ", best_index)
+        prevtime = time.time()
+
+
+          #  # Perform collision checking.
+        collision_check_array = self.lp._collision_checker.collision_check(paths, [scan_data])
+        print(collision_check_array)
+
+        best_index = self.lp._collision_checker.select_best_path_index(paths, collision_check_array, self.bp._goal_state)
+        currtime = time.time()
+        #print('select_best_path_index :', 1/(currtime-prevtime))
+        self.times.append(currtime-prevtime)
+
+
+        #print("best_idx: ", best_index)
 
         # If no path was feasible, continue to follow the previous best path.
         if best_index == None:
@@ -251,8 +288,15 @@ class Autonomous:
         desired_speed = self.bp._goal_state[2]
         
         #decelerate_to_stop = self.bp._state == behavioural_planner.DECELERATE_TO_STOP
+        prevtime = time.time()
+
         self.local_waypoints = self.lp._velocity_planner.compute_velocity_profile(best_path, desired_speed, ego_state, current_speed, False, False)
+        currtime = time.time()
+        #print('compute_velocity_profile :', 1/(currtime-prevtime))
+        self.times.append(currtime-prevtime)
+
         
+        prevtime = time.time()
 
         if self.local_waypoints != None:
             wp_distance = []   # distance array
@@ -282,7 +326,12 @@ class Autonomous:
 
             # Update the other controller values and controls
             self.controller.update_waypoints(wp_interp)
+        currtime = time.time()
+        #print('update_waypoints :', 1/(currtime-prevtime))
+        self.times.append(currtime-prevtime)
+
         
+        prevtime = time.time()
 
         if self.local_waypoints != None and self.local_waypoints != []:
             self.controller.update_values(current_x, current_y, current_yaw, 
@@ -293,7 +342,16 @@ class Autonomous:
         else:
             cmd_throttle = 0.0
             cmd_steer = 0.0
+        currtime = time.time()
+        #print('update_values :', 1/(currtime-prevtime))
+        self.times.append(currtime-prevtime)
         
+        #print("Alltimes : ")
+        # for t in self.times:
+        #     print(1/t)
+        self.times = []
+        self.curr_time = time.time()
+        #print("AAAAAAAAa : ", 1/(self.curr_time - self.prev_time))
         return paths, cmd_throttle,cmd_steer,cmd_brake, best_index
 
 

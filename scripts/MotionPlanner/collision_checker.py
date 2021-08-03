@@ -16,7 +16,7 @@ Aug 24, 2019
 import numpy as np
 import scipy.spatial
 from math import sin, cos, pi, sqrt
-
+import time
 class CollisionChecker:
     def __init__(self, circle_offsets, circle_radii, weight):
         self._circle_offsets = circle_offsets
@@ -40,10 +40,10 @@ class CollisionChecker:
                 circle_offset = np.array(self._circle_offsets)
                 circle_locations[:, 0] = path[0][j] + circle_offset * cos(path[2][j])
                 circle_locations[:, 1] = path[1][j] + circle_offset * sin(path[2][j])
-                
+                #print("circle", circle_locations)
                 for k in range(len(obstacles)):
                     collision_dists = \
-                        scipy.spatial.distance.cdist(obstacles[k], 
+                        scipy.spatial.distance.cdist([obstacles[k]], 
                                                      circle_locations)
                     collision_dists = np.subtract(collision_dists, 
                                                   self._circle_radii)
@@ -67,14 +67,14 @@ class CollisionChecker:
             # Handle the case of collision-free paths.
             if collision_check_array[i]:
               
-                score = sqrt((paths[i][1][-1] - goal_state[1]) ** 2 + (paths[i][0][-1] - goal_state[0]) ** 2)
+                score = self._weight * sqrt((paths[i][1][-1] - goal_state[1]) ** 2 + (paths[i][0][-1] - goal_state[0]) ** 2)
                
                 for j in range(len(paths)):
                     if j == i:
                         continue
                     else:
                         if not collision_check_array[j]:
-                            score += self._weight * sqrt((paths[i][1][-1] - paths[j][1][-1]) ** 2 + (paths[i][0][-1] - paths[j][0][-1]) ** 2)
+                            score += sqrt((paths[i][1][-1] - paths[j][1][-1]) ** 2 + (paths[i][0][-1] - paths[j][0][-1]) ** 2)
             else:
                 score = float('Inf')
             

@@ -57,8 +57,10 @@ class Agent(object):
         #mapdata.data = OccupancyGrid.data
         self.drive_pub = rospy.Publisher('/drive', AckermannDriveStamped, queue_size=1)
         self.path_pub = rospy.Publisher('/paths', Path, queue_size=1)
+        self.path_collision_pub = rospy.Publisher('/paths_col', Path, queue_size=1)
         self.marker_pub = rospy.Publisher('/marker', Marker, queue_size=10)
         self.markerarray_pub = rospy.Publisher('/markerarray', MarkerArray, queue_size=10)
+        self.wayarr_pub = rospy.Publisher('/wayarr', MarkerArray, queue_size=10)
 
         #self.mapdata = rospy.Subscriber('/map', OccupancyGrid, self.callback, queue_size=1)
         self.scan_sub = rospy.Subscriber('/scan', LaserScan, self.scan_callback, queue_size=1)
@@ -93,15 +95,15 @@ class Agent(object):
         maxi = scan_msg.range_max
         data = data[359:719]
         #print(len(data))
-        for idx in range(0,len(data)):
-            theta = -(179-idx)*0.25  
+        for idx in range(0,int(len(data)/12)):
+            theta = -(179-idx*12)*0.25  
             theta = math.radians(theta)
-            x= data[idx]*math.cos(theta)
-            y = data[idx]*math.sin(theta)
+            x= data[12*idx]*math.cos(theta)
+            y = data[12*idx]*math.sin(theta)
             scan_data.append([x,y])
         #print(len(self.scan_data), max(data))
         self.scan_data= self.transform(self.ego_state,scan_data)
-        #time.sleep(10)
+       
 
 
 
@@ -123,48 +125,66 @@ class Agent(object):
         self.prev_time = self.current_time
         ptime = time.time()
         
-        rospy.loginfo("Current time %i %i", now.secs, now.nsecs)
+        #rospy.loginfo("Current time %i %i", now.secs, now.nsecs)
 
         speed = np.linalg.norm([velocity.x,velocity.y,velocity.z])
-        paths, cmd_throttle,cmd_steer,cmd_brake, best_index = module_7.exec_waypoint_nav_demo(position, yaw_rad, now.nsecs,speed,self.scan_data)
+        paths, cmd_throttle,cmd_steer,cmd_brake, best_index, collision_check_array, waypoints = module_7.exec_waypoint_nav_demo(position, yaw_rad, now.nsecs,speed,self.scan_data)
         paths_np = np.array(paths)
         drive = AckermannDriveStamped()
         drive.drive.speed = cmd_throttle
         drive.drive.steering_angle = cmd_steer
         #print("cmd_throttle",cmd_throttle)
         #print("cmd_steer",cmd_steer)
+
+
         path_draw = Path()
         path_draw.header.frame_id = "map"
         path_draw.header.stamp = rospy.Time.now()
-        for i in range(len(paths)):
-            for j in range(len(paths[i][0])):
-                pose = PoseStamped()
-                pose.pose.position.x = paths[i][0][j]
-                pose.pose.position.y = paths[i][1][j]
-                pose.pose.position.z = 0
-                path_draw.poses.append(pose)
-        path_marker = Marker()
-        path_marker.header.frame_id = 'map'
-        path_marker.header.stamp = rospy.get_rostime()
-        path_marker.ns = "my"
-        path_marker.id = 0
-        path_marker.type = 2
-        path_marker.action = 0
-        path_marker.pose.position.x = paths[best_index][0][-1]
-        path_marker.pose.position.y = paths[best_index][1][-1]
-        path_marker.pose.position.z = 0
-        path_marker.pose.orientation.x = 0
-        path_marker.pose.orientation.y = 0
-        path_marker.pose.orientation.z = 0
-        path_marker.pose.orientation.w = 1.0
-        path_marker.scale.x = 0.1
-        path_marker.scale.y = 0.1
-        path_marker.scale.z = 0.1
-        path_marker.color.r = 0.0
-        path_marker.color.g = 1.0
-        path_marker.color.b = 0.0
-        path_marker.color.a = 1.0
 
+        path_collision = Path()
+        path_collision.header.frame_id = "map"
+        path_collision.header.stamp = rospy.Time.now()
+        print(len(paths))
+
+        try:
+            for i in range(len(paths)):
+                if collision_check_array[i] :
+                    for j in range(len(paths[i][0])):
+                        pose = PoseStamped()
+                        pose.pose.position.x = paths[i][0][j]
+                        pose.pose.position.y = paths[i][1][j]
+
+                        path_draw.poses.append(pose)
+                else :
+                    for j in range(len(paths[i][0])):
+                        pose = PoseStamped()
+                        pose.pose.position.x = paths[i][0][j]
+                        pose.pose.position.y = paths[i][1][j]
+
+                        path_collision.poses.append(pose)
+            path_marker = Marker()
+            path_marker.header.frame_id = 'map'
+            path_marker.header.stamp = rospy.get_rostime()
+            path_marker.ns = "my"
+            path_marker.id = 0
+            path_marker.type = 2
+            path_marker.action = 0
+            path_marker.pose.position.x = paths[best_index][0][-1]
+            path_marker.pose.position.y = paths[best_index][1][-1]
+            path_marker.pose.position.z = 0
+            path_marker.pose.orientation.x = 0
+            path_marker.pose.orientation.y = 0
+            path_marker.pose.orientation.z = 0
+            path_marker.pose.orientation.w = 1.0
+            path_marker.scale.x = 0.1
+            path_marker.scale.y = 0.1
+            path_marker.scale.z = 0.1
+            path_marker.color.r = 0.0
+            path_marker.color.g = 1.0
+            path_marker.color.b = 0.0
+            path_marker.color.a = 1.0
+        except:
+            pass
 
         scan_marker = MarkerArray()
         for i in range(len(self.scan_data)):
@@ -191,28 +211,56 @@ class Agent(object):
             marker.color.a = 1.0
             scan_marker.markers.append(marker)
 
+
+        way_marker = MarkerArray()
+        for i in range(len(waypoints)):
+            marker  = Marker() 
+            marker.header.frame_id = 'map'
+            marker.header.stamp = rospy.get_rostime()
+            marker.ns = "way"+str(i)
+            marker.id = 0
+            marker.type = 2
+            marker.action = 0
+            marker.pose.position.x = float(waypoints[i][0])
+            marker.pose.position.y = float(waypoints[i][1])
+            marker.pose.position.z = 0
+            marker.pose.orientation.x = 0
+            marker.pose.orientation.y = 0
+            marker.pose.orientation.z = 0
+            marker.pose.orientation.w = 1.0
+            marker.scale.x = 0.1
+            marker.scale.y = 0.1
+            marker.scale.z = 0.1
+            marker.color.r = 1.0
+            marker.color.g = 0.0
+            marker.color.b = 0.0
+            marker.color.a = 1.0
+            way_marker.markers.append(marker)
+
         self.drive_pub.publish(drive)
 
-        #self.current_time = time.time()
-        #ctime = time.time()
-        #print("fps : ", 1/(self.current_time - self.prev_time))
-        # self.times.append(self.current_time - self.prev_time)
-        # self.times2.append(ctime - ptime)
-        # if len(self.times) % 1000 == 0:
-        #     tt = 0
-        #     ttt = 0
-        #     for t in self.times:
-        #         tt += t
-        #     for t in self.times2:
-        #         ttt += t
-        #     tt /= len(self.times)
-        #     ttt /= len(self.times2)
-        #     print("****************************average fps +ROS: ********************************", 1/tt)
-        #     print("****************************average fps : ********************************", 1/ttt)
+        self.current_time = time.time()
+        ctime = time.time()
+        print("fps : ", 1/(self.current_time - self.prev_time))
+        self.times.append(self.current_time - self.prev_time)
+        self.times2.append(ctime - ptime)
+        if len(self.times) % 1000 == 0:
+            tt = 0
+            ttt = 0
+            for t in self.times:
+                tt += t
+            for t in self.times2:
+                ttt += t
+            tt /= len(self.times)
+            ttt /= len(self.times2)
+            print("****************************average fps +ROS: ********************************", 1/tt)
+            print("****************************average fps : ********************************", 1/ttt)
 
         self.path_pub.publish(path_draw)
+        self.path_collision_pub.publish(path_collision)
         self.marker_pub.publish(path_marker)
         self.markerarray_pub.publish(scan_marker)
+        self.wayarr_pub.publish(way_marker)
         #time.sleep(0.05)
 
 if __name__ == '__main__':

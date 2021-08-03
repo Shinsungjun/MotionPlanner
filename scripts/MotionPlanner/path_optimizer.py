@@ -28,10 +28,12 @@ class PathOptimizer:
 
     ##########bounds
     def bounds_check(self, yaw,sf_0):
-        bounds = ((-0.25, 0.25),(-0.25, 0.25),(sf_0, None))
+        bounds = ((-0.3, 0.3),(-0.3, 0.3),(sf_0, None))
 
         if np.abs(yaw)>60:
-            bounds = ((-0.5, 0.5),(-0.5, 0.5),(sf_0, None))
+            bounds = ((-0.7, 0.7),(-0.7, 0.7),(sf_0, None))
+        if np.abs(yaw)>80:
+            bounds = ((-0.9, 0.9),(-0.9, 0.9),(sf_0, None))
         return bounds
     
 
@@ -86,7 +88,7 @@ class PathOptimizer:
         c = (9.0*p[0] - 45.0*p[1]/2.0 + 18.0*p[2] - 9.0*p[3]/2.0)/p[4]**2
         d = -(9.0*p[0]/2.0 - 27.0*p[1]/2.0 + 27.0*p[2]/2.0 - 9.0*p[3]/2.0)/p[4]**3
 
-        s_points = np.linspace(0.0, p[4])
+        s_points = np.linspace(0.0, p[4],num = 10)
         #print("s", s_points)
         t_points = self.thetaf(a, b, c, d, s_points)
         x_points = scipy.integrate.cumtrapz(np.cos(t_points),s_points)

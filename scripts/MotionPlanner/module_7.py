@@ -89,13 +89,13 @@ DIST_THRESHOLD_TO_LAST_WAYPOINT = 2.0  # some distance from last position before
 
 # Planning Constants
 NUM_PATHS = 7
-BP_LOOKAHEAD_BASE      = 8.0            # m
+BP_LOOKAHEAD_BASE      = 6.0            # m
 BP_LOOKAHEAD_TIME      = 1.0              # s
-PATH_OFFSET            = 0.7              # m
-CIRCLE_OFFSETS         = [-0.1, 0.1, 0.3] # m
-CIRCLE_RADII           = [0.1, 0.1, 0.1]  # m
+PATH_OFFSET            = 0.7           # m
+CIRCLE_OFFSETS         = [0.1, 0.1, 0.1] # m
+CIRCLE_RADII           = [0.4, 0.4, 0.4]  # m
 TIME_GAP               = 1.0              # s
-PATH_SELECT_WEIGHT     = 10
+PATH_SELECT_WEIGHT     = 100
 A_MAX                  = 1.5              # m/s^2
 SLOW_SPEED             = 2.0              # m/s
 STOP_LINE_BUFFER       = 3.5              # m
@@ -175,34 +175,7 @@ class Autonomous:
         return (x, y, yaw_rad)
 
 
-    # def send_control_command(self, throttle, steer, brake, 
-    #                         hand_brake=False, reverse=False):
-    #     """Send control command to CARLA client.
-        
-    #     Send control command to CARLA client.
 
-    #     Args:
-    #         client: The CARLA client object
-    #         throttle: Throttle command for the sim car [0, 1]
-    #         steer: Steer command for the sim car [-1, 1]
-    #         brake: Brake command for the sim car [0, 1]
-    #         hand_brake: Whether the hand brake is engaged
-    #         reverse: Whether the sim car is in the reverse gear
-    #     """
-    
-    #     # Clamp all values within their limits
-    #     steer = np.fmax(np.fmin(steer, 1.0), -1.0)
-    #     throttle = np.fmax(np.fmin(throttle, 1.0), 0)
-    #     brake = np.fmax(np.fmin(brake, 1.0), 0)
-
-    #     # HERE SEND CONTROL SIGNALS TO Dummy_agent.py 
-
-    #     # control.steer = steer
-    #     # control.throttle = throttle
-    #     # control.brake = brake
-    #     # control.hand_brake = hand_brake
-    #     # control.reverse = reverse
-    #     # client.send_control(control)
 
 
     def exec_waypoint_nav_demo(self,position, yaw_rad, nsecs, speed, scan_data):
@@ -239,7 +212,7 @@ class Autonomous:
         self.times.append(currtime-prevtime)
 
 
-        #print("goal_index :",self.bp._goal_index)
+        print("goal_index :",self.bp._goal_index)
         # Calculate planned paths in the local frame.
         prevtime = time.time()
 
@@ -267,7 +240,7 @@ class Autonomous:
 
 
           #  # Perform collision checking.
-        collision_check_array = self.lp._collision_checker.collision_check(paths, [scan_data])
+        collision_check_array = self.lp._collision_checker.collision_check(paths, scan_data)
         print(collision_check_array)
 
         best_index = self.lp._collision_checker.select_best_path_index(paths, collision_check_array, self.bp._goal_state)
@@ -352,7 +325,7 @@ class Autonomous:
         self.times = []
         self.curr_time = time.time()
         #print("AAAAAAAAa : ", 1/(self.curr_time - self.prev_time))
-        return paths, cmd_throttle,cmd_steer,cmd_brake, best_index
+        return paths, cmd_throttle,cmd_steer,cmd_brake, best_index, collision_check_array, self.waypoints
 
 
     

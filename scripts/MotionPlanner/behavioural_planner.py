@@ -67,7 +67,7 @@ class BehaviouralPlanner:
             arc_length += np.sqrt((waypoints[wp_index][0] - waypoints[wp_index+1][0])**2 + (waypoints[wp_index][1] - waypoints[wp_index+1][1])**2)
             if arc_length > self._lookahead: break
             wp_index += 1
-
+        
         return wp_index
 
 def get_closest_index(waypoints, ego_state):

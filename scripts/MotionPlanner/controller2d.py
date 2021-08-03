@@ -10,7 +10,7 @@ import numpy as np
 class Controller2D(object):
     def __init__(self, waypoints):
         self.vars                   = cutils.CUtils()
-        self._lookahead_distance    = 1
+        self._lookahead_distance    = 0.7
         self._start_control_loop    = True
         self._set_throttle          = 0
         self._set_brake             = 0
